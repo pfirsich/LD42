@@ -1,0 +1,3 @@
+[submodule "LD42/libs/cpml"]
+	path = LD42/libs/cpml
+	url = https://github.com/excessive/cpml.git
