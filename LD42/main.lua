@@ -4,42 +4,30 @@ cpml = require("libs.cpml")
 vec3 = cpml.vec3
 mat4 = cpml.mat4
 
-local shaders = require("shaders")
 local terrain = require("terrain")
 
 local lightDir = {vec3(-0.8252, 0.3637, 0.4320):normalize():unpack()}
 local ambientColor = {0.15, 0.16, 0.15}
 
-local shader = kaun.newShader(shaders.frag, shaders.vert)
+local shaders = setmetatable({}, {__index = function(t, name)
+    return love.filesystem.read("shaders/" .. name .. ".glsl")
+end})
 
-local terrainSubDiv = 64
-local terrainData = terrain.generate(terrainSubDiv, 4.0, 2.0, {1.0, 0.5, 0.25}, nil, 0.4)
+local defaultShader = kaun.newShader(shaders.defaultVert, shaders.defaultFrag)
+
 local terrainSize = 60
-local terrainHeight = 3
-local terrainMesh = terrain.createMesh(terrainData, terrainSize, terrainHeight)
+local terrainHeight = 3.0
+terrain.setup(terrainSize, terrainHeight, 64, 4.0, 2.0, {1.0, 0.5, 0.25}, nil, 0.4)
 
-local terrainTrafo = kaun.newTransform()
-terrainTrafo:setPosition(-terrainSize/2, 0, -terrainSize/2)
-
-local function getTerrainHeight(wx, wz)
-    local terrainX, terrainY, terrainZ = terrainTrafo:getPosition()
-    local relX, relZ = wx - terrainX, wz - terrainZ
-    local tx = relX / terrainSize * (terrainSubDiv) + 1
-    local ty = relZ / terrainSize * (terrainSubDiv) + 1
-    return terrain.getHeight(terrainData, tx, ty) * terrainHeight + terrainY
-end
-
-local waterData = terrain.generate(64, 4.0, 2.0, {1.0, 0.8, 0.6, 0.4})
 local waterSize = terrainSize * 5.0
-local waterMesh = terrain.createMesh(waterData, waterSize, 0.5)
+local waterMesh = kaun.newPlaneMesh(waterSize, waterSize, 128, 128)
+local waterShader = kaun.newShader(shaders.waterVert, shaders.waterFrag, shaders.waterGeom)
 local waterState = kaun.newRenderState()
 waterState:setBlendEnabled(true)
 waterState:setBlendFactors("src_alpha", "one_minus_src_alpha")
 
 local waterTrafo = kaun.newTransform()
-waterTrafo:setPosition(-waterSize/2, 1.0, -waterSize/2)
-
-local waterShader = kaun.newShader(shaders.water, shaders.waterVert)
+waterTrafo:setPosition(0.0, 1.0, 0.0)
 
 local groundMesh = kaun.newPlaneMesh(waterSize, waterSize)
 local groundTrafo = kaun.newTransform()
@@ -63,7 +51,7 @@ sandTexture:setWrap("repeat", "repeat")
 local playerRadius = 0.2
 local playerMesh = kaun.newSphereMesh(playerRadius, 32, 12)
 local playerTrafo = kaun.newTransform()
-playerTrafo:setPosition(0, getTerrainHeight(0, 0) + playerRadius, 0)
+playerTrafo:setPosition(0, terrain.getHeight(0, 0) + playerRadius, 0)
 
 function love.resize(w, h)
     kaun.setProjection(45, w/h, 0.1, 100.0)
@@ -106,7 +94,7 @@ function love.update(dt)
         local playerPos = vec3(playerTrafo:getPosition())
         playerPos = playerPos + vec3(cameraTrafo:getRight()) * pMove.x * speed
         playerPos = playerPos + vec3(cameraTrafo:getForward()) * pMove.z * speed
-        playerPos.y = getTerrainHeight(playerPos.x, playerPos.z) + playerRadius
+        playerPos.y = terrain.getHeight(playerPos.x, playerPos.z) + playerRadius
         playerTrafo:setPosition(playerPos:unpack())
 
         local rel = playerPos - camPos
@@ -120,7 +108,7 @@ function love.update(dt)
     end
 
     local camPos = vec3(cameraTrafo:getPosition())
-    camPos.y = math.max(camPos.y, getTerrainHeight(camPos.x, camPos.z) + 0.25)
+    camPos.y = math.max(camPos.y, terrain.getHeight(camPos.x, camPos.z) + 0.25)
     cameraTrafo:setPosition(camPos:unpack())
 
     local waterPos = vec3(waterTrafo:getPosition())
@@ -161,8 +149,8 @@ function love.draw()
     kaun.flush()
 
     local terrainTexScale = 5
-    kaun.setModelTransform(terrainTrafo)
-    kaun.draw(terrainMesh, shader, {
+    kaun.setModelTransform(terrain.transform)
+    kaun.draw(terrain.mesh, defaultShader, {
         color = {1, 1, 1, 1},
         ambientColor = ambientColor,
         lightDir = lightDir,
@@ -171,7 +159,7 @@ function love.draw()
     })
 
     kaun.setModelTransform(groundTrafo)
-    kaun.draw(groundMesh, shader, {
+    kaun.draw(groundMesh, defaultShader, {
         color = {1, 1, 1, 1},
         ambientColor = ambientColor,
         lightDir = lightDir,
@@ -180,7 +168,7 @@ function love.draw()
     })
 
     kaun.setModelTransform(playerTrafo)
-    kaun.draw(playerMesh, shader, {
+    kaun.draw(playerMesh, defaultShader, {
         color = {1, 0, 0, 1},
         ambientColor = ambientColor,
         lightDir = lightDir,

@@ -14,7 +14,7 @@ local function hullCurve(nx, ny, hullRadius)
     end
 end
 
-function terrain.generate(subDiv, baseFreq, intervalFactor, weights, redistribution, hullRadius)
+local function generateHeightmap(subDiv, baseFreq, intervalFactor, weights, redistribution, hullRadius)
     local weightSum = 0
     for _, weight in ipairs(weights) do
         weightSum = weightSum + weight
@@ -48,7 +48,7 @@ function terrain.generate(subDiv, baseFreq, intervalFactor, weights, redistribut
     return heightmap
 end
 
-function terrain.createMesh(heightmap, sizeXZ, height)
+local function createMesh(heightmap, sizeXZ, height)
     local subDiv = #heightmap
     local scaleXZ = sizeXZ / subDiv
     local vertices = {}
@@ -92,16 +92,8 @@ function terrain.createMesh(heightmap, sizeXZ, height)
     return kaun.newMesh("triangles", vertexFormat, vertices)
 end
 
-local function getPoint(x, y)
-    return {x, heightmap[y][x], y}
-end
-
-local function vsub(a, b)
-    return {a[1] - b[1], a[2] - b[2], a[3] - b[3]}
-end
-
 -- hx, hy in heightmap coordinates
-function terrain.getHeight(heightmap, hx, hy)
+local function getHeightmapHeight(heightmap, hx, hy)
     local subDiv = #heightmap
     if hx <= 1 or hx >= subDiv or hy <= 1 or hy >= subDiv then
         return 0
@@ -168,6 +160,27 @@ function terrain.getHeight(heightmap, hx, hy)
                        + (1-fy) * (heightmap[iy][ix+1] - p0h)
         end
     end
+end
+
+function terrain.setup(sizeXZ, height, subDiv, baseFreq, intervalFactor, weights, hullRadius, redistribution)
+    terrain.size = sizeXZ
+    terrain.height = height
+    terrain.subDiv = subDiv
+
+    terrain.heightmap = generateHeightmap(subDiv, baseFreq, intervalFactor, weights, hullRadius, redistribution)
+    terrain.mesh = createMesh(terrain.heightmap, sizeXZ, height)
+
+    terrain.transform = kaun.newTransform()
+    terrain.transform:setPosition(-sizeXZ/2, 0, -sizeXZ/2)
+end
+
+-- wx, wz in world space
+function terrain.getHeight(wx, wz)
+    local terrainX, terrainY, terrainZ = terrain.transform:getPosition()
+    local relX, relZ = wx - terrainX, wz - terrainZ
+    local tx = relX / terrain.size * terrain.subDiv + 1
+    local ty = relZ / terrain.size * terrain.subDiv + 1
+    return getHeightmapHeight(terrain.heightmap, tx, ty) * terrain.height + terrainY
 end
 
 return terrain
