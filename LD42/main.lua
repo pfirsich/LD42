@@ -5,6 +5,7 @@ vec3 = cpml.vec3
 mat4 = cpml.mat4
 
 local terrain = require("terrain")
+local camera = require("camera")
 
 local lightDir = {vec3(-0.8252, 0.3637, 0.4320):normalize():unpack()}
 local ambientColor = {0.15, 0.16, 0.15}
@@ -42,8 +43,7 @@ local skyboxState = kaun.newRenderState()
 skyboxState:setDepthWrite(false)
 skyboxState:setFrontFace("cw")
 
-local cameraTrafo = kaun.newTransform()
-cameraTrafo:lookAtPos(0, 4, terrainSize/2,  0, terrainHeight, -terrainSize/2)
+camera.lookAtPos(0, 4, terrainSize/2,  0, terrainHeight, -terrainSize/2)
 
 local sandTexture = kaun.newTexture("media/sand.png")
 sandTexture:setWrap("repeat", "repeat")
@@ -64,52 +64,23 @@ end
 
 function love.update(dt)
     local lk = love.keyboard
-    local speed = 2.0
-    if lk.isDown("lshift") then speed = 4.0 end
-    speed = speed * dt
 
-    local move = vec3(0, 0, 0)
-    move.x = bool2Int(lk.isDown("d")) - bool2Int(lk.isDown("a"))
-    move.y = bool2Int(lk.isDown("r")) - bool2Int(lk.isDown("f"))
-    move.z = bool2Int(lk.isDown("s")) - bool2Int(lk.isDown("w"))
+    camera.update(dt)
 
-    if move:len() > 0.5 then
-        local moveY = move.y
-        move = vec3(cameraTrafo:localDirToWorld(move.x, move.y, move.z))
-        move.y = move.y + moveY -- move up down with r/f in world space
-        local camPos = vec3(cameraTrafo:getPosition())
-        camPos = camPos + move:normalize() * speed
-        cameraTrafo:setPosition(camPos:unpack())
-    end
-
-    local playerSpeed = 1.5
+    local playerSpeed = 2.0
     local pMove = vec3(0, 0, 0)
     pMove.x = bool2Int(lk.isDown("right")) - bool2Int(lk.isDown("left"))
     pMove.z = bool2Int(lk.isDown("up")) - bool2Int(lk.isDown("down"))
     pMove = pMove:normalize()
 
     if pMove:len() > 0.5 then
-        local camPos = vec3(cameraTrafo:getPosition())
-
         local playerPos = vec3(playerTrafo:getPosition())
-        playerPos = playerPos + vec3(cameraTrafo:getRight()) * pMove.x * speed
-        playerPos = playerPos + vec3(cameraTrafo:getForward()) * pMove.z * speed
+        playerPos = playerPos + vec3(camera.getRight()) * pMove.x * playerSpeed * dt
+        playerPos = playerPos + vec3(camera.getForward()) * pMove.z * playerSpeed * dt
         playerPos.y = terrain.getHeight(playerPos.x, playerPos.z) + playerRadius
         playerTrafo:setPosition(playerPos:unpack())
-
-        local rel = playerPos - camPos
-        rel.y = 0
-        local maxDist = 3.0
-        if rel:len() > maxDist then
-            camPos = camPos + rel:normalize() * (rel:len() - maxDist)
-            cameraTrafo:setPosition(camPos:unpack())
-        end
-        cameraTrafo:lookAt(playerPos:unpack())
+        camera.updatePlayer(playerPos)
     end
-
-    local camPos = vec3(cameraTrafo:getPosition())
-    camPos.y = math.max(camPos.y, terrain.getHeight(camPos.x, camPos.z) + 0.25)
-    cameraTrafo:setPosition(camPos:unpack())
 
     local waterPos = vec3(waterTrafo:getPosition())
     waterPos.y = waterPos.y + (bool2Int(lk.isDown("j")) - bool2Int(lk.isDown("k"))) * 0.2 * dt
@@ -119,17 +90,7 @@ end
 function love.mousemoved(x, y, dx, dy)
     local winW, winH = love.graphics.getDimensions()
     if love.mouse.isDown(1) then
-        local dx = dx / winW
-        local dy = dy / winH
-        local sens = 5.0
-        cameraTrafo:rotateWorld(sens * dx, 0, 1, 0)
-        cameraTrafo:rotate(sens * dy, 1, 0, 0)
-    end
-end
-
-function love.keypressed(key)
-    if key == "space" then
-        cameraTrafo:lookAt(0, 1, -terrainSize/2)
+        camera.mouseLook(dx / winW, dy / winH, 5.0)
     end
 end
 
@@ -138,9 +99,9 @@ local startTime = love.timer.getTime()
 function love.draw()
     kaun.clear(0.9, 1, 1, 1)
     kaun.clearDepth()
-    kaun.setViewTransform(cameraTrafo)
+    kaun.setViewTransform(camera.getTransform())
 
-    local camX, camY, camZ = cameraTrafo:getPosition()
+    local camX, camY, camZ = camera.getPosition()
     skyboxTransform:setPosition(camX, camY - 0.04, camZ)
     kaun.setModelTransform(skyboxTransform)
     kaun.draw(skyboxMesh, skyboxShader, {
