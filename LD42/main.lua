@@ -26,6 +26,8 @@ local waterShader = kaun.newShader(shaders.waterVert, shaders.waterFrag, shaders
 local waterState = kaun.newRenderState()
 waterState:setBlendEnabled(true)
 waterState:setBlendFactors("src_alpha", "one_minus_src_alpha")
+local noiseTexture = kaun.newTexture("media/noise.png")
+noiseTexture:setWrap("repeat", "repeat")
 
 local waterTrafo = kaun.newTransform()
 waterTrafo:setPosition(0.0, 1.0, 0.0)
@@ -53,9 +55,35 @@ local playerMesh = kaun.newSphereMesh(playerRadius, 32, 12)
 local playerTrafo = kaun.newTransform()
 playerTrafo:setPosition(0, terrain.getHeight(0, 0) + playerRadius, 0)
 
+local shadowMap = kaun.newRenderTexture("depth24", 2048, 2048)
+local shadowCamera = kaun.newTransform()
+shadowCamera:setPosition((vec3(lightDir) * 40.0):unpack())
+shadowCamera:lookAt(0, 0, 0)
+local shadowProjection = {-28, 28, -10, 13, 0.0, 100.0}
+
+local colorTarget, depthTarget, colorTargetMS, depthTargetMS
+
+local fullScreenQuad = kaun.newMesh("triangle_strip",
+                                    kaun.newVertexFormat({"POSITION", 2, "F32"}),
+                                    {{-1, -1}, { 1, -1}, {-1,  1}, { 1,  1}})
+local fullScreenQuadShader = kaun.newShader(shaders.fsQuadVert, shaders.fsQuadFrag)
+local fullScreenQuadState = kaun.newRenderState()
+fullScreenQuadState:setDepthTest("disabled")
+
+local depthDebugShader = kaun.newShader(shaders.fsQuadVert, shaders.depthDebug)
+
+local testTexture = kaun.newTexture("media/test.png")
+
+local projection = {}
+
 function love.resize(w, h)
-    kaun.setProjection(45, w/h, 0.1, 100.0)
+    projection = {45, w/h, 0.1, 100.0}
     kaun.setViewport(0, 0, w, h)
+    colorTarget = kaun.newRenderTexture("rgba", w, h)
+    depthTarget = kaun.newRenderTexture("depth24", w, h)
+    local msaa = 8
+    colorTargetMS = kaun.newRenderTexture("rgba", w, h, msaa)
+    depthTargetMS = kaun.newRenderTexture("depth24", w, h, msaa)
 end
 
 function bool2Int(b)
@@ -96,19 +124,7 @@ end
 
 local startTime = love.timer.getTime()
 
-function love.draw()
-    kaun.clear(0.9, 1, 1, 1)
-    kaun.clearDepth()
-    kaun.setViewTransform(camera.getTransform())
-
-    local camX, camY, camZ = camera.getPosition()
-    skyboxTransform:setPosition(camX, camY - 0.04, camZ)
-    kaun.setModelTransform(skyboxTransform)
-    kaun.draw(skyboxMesh, skyboxShader, {
-        skyboxTexture = skyboxTexture,
-    }, skyboxState)
-    kaun.flush()
-
+function renderScene()
     local terrainTexScale = 5
     kaun.setModelTransform(terrain.transform)
     kaun.draw(terrain.mesh, defaultShader, {
@@ -117,6 +133,7 @@ function love.draw()
         lightDir = lightDir,
         baseTexture = sandTexture,
         texScale = 4,
+        shadowMap = shadowMap,
     })
 
     kaun.setModelTransform(groundTrafo)
@@ -126,6 +143,7 @@ function love.draw()
         lightDir = lightDir,
         baseTexture = sandTexture,
         texScale = terrainTexScale * waterSize / terrainSize,
+        shadowMap = shadowMap,
     })
 
     kaun.setModelTransform(playerTrafo)
@@ -135,18 +153,58 @@ function love.draw()
         lightDir = lightDir,
         baseTexture = sandTexture,
         texScale = 5,
+        shadowMap = shadowMap,
     })
-    kaun.flush()
+end
+
+function love.draw()
+    -- render shadow map
+    kaun.setRenderTarget({}, shadowMap)
+    kaun.clearDepth()
+
+    kaun.setProjection(unpack(shadowProjection))
+    kaun.setViewTransform(shadowCamera)
+
+    renderScene()
+
+    -- render actual scene
+    kaun.setRenderTarget(colorTargetMS, depthTargetMS)
+    kaun.clear(0.9, 1, 1, 1)
+    kaun.clearDepth()
+
+    kaun.setProjection(unpack(projection))
+    kaun.setViewTransform(camera.getTransform())
+
+    local camX, camY, camZ = camera.getPosition()
+    skyboxTransform:setPosition(camX, camY - 0.04, camZ)
+    kaun.setModelTransform(skyboxTransform)
+    kaun.draw(skyboxMesh, skyboxShader, {
+        skyboxTexture = skyboxTexture,
+    }, skyboxState)
+    --kaun.flush()
+
+    renderScene()
+
+    -- resolve render targets
+    kaun.setRenderTarget(colorTarget, depthTarget, true)
+
+    kaun.setRenderTarget(colorTargetMS, depthTargetMS)
+    kaun.setRenderTarget({}, nil, true)
 
     kaun.setModelTransform(waterTrafo)
     kaun.draw(waterMesh, waterShader, {
         color = {1, 1, 1, 1},
         skyboxTexture = skyboxTexture,
-        ambientColor = ambientColor,
-        lightDir = lightDir,
-        texScale = 1,
+        depthTexture = depthTarget,
+        noiseTexture = noiseTexture,
         time = love.timer.getTime() - startTime,
     }, waterState)
+
+    -- local w, h = love.graphics.getDimensions()
+    -- kaun.draw(fullScreenQuad, depthDebugShader, {
+    --     depthTexture = depthTarget,
+    --     range = {0.9, 1.0},
+    -- }, fullScreenQuadState)
 
     kaun.beginLoveGraphics() -- calls kaun.flush
     love.graphics.setColor(0.1, 0.1, 0.1)

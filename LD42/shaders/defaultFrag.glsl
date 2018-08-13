@@ -12,6 +12,8 @@ uniform vec4 color;
 uniform vec3 ambientColor;
 uniform vec3 lightDir; // normalized
 uniform float texScale = 1.0;
+uniform sampler2D shadowMap;
+uniform mat4 lightTransform;
 
 void main() {
     float NdotL = max(0.0, dot(vsOut.normal, lightDir));

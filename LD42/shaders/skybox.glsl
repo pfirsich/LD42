@@ -8,6 +8,7 @@ layout(location = KAUN_ATTR_TEXCOORD0) in vec2 attrTexCoord;
 void main() {
     texCoords = attrPosition;
     gl_Position = kaun_modelViewProjection * vec4(attrPosition, 1.0);
+    gl_Position.z = gl_Position.w; // make sure z will be 1.0 = far away
 }
 #endif
 

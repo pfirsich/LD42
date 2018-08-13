@@ -25,7 +25,7 @@ float amplitude = 0.075;
 
 void main() {
     waves[0].dir = normalize(vec3(0.0, 0.0, 1.0));
-    waves[0].freq = 2.0 / 10.0; // quotient is wavelength
+    waves[0].freq = 2.0 / 10.0; // 2/L, L = wavelength
     waves[0].speed = 2.7;
     waves[0].amplitude = 1.0;
     waves[0].Q = 0.1;
