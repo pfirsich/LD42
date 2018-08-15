@@ -6,13 +6,17 @@ mat4 = cpml.mat4
 
 local terrain = require("terrain")
 local camera = require("camera")
+local shaders = require("shaders")
 
-local lightDir = {vec3(-0.8252, 0.3637, 0.4320):normalize():unpack()}
+--local lightDir = {vec3(-0.8252, 0.3637, 0.4320):normalize():unpack()} -- correct!
+local lightDir = {vec3(-0.8252, 0.3237, 0.4320):normalize():unpack()} -- longer shadows!
 local ambientColor = {0.15, 0.16, 0.15}
 
-local shaders = setmetatable({}, {__index = function(t, name)
-    return love.filesystem.read("shaders/" .. name .. ".glsl")
-end})
+local function unpackmat4(mat, index)
+    index = index or 1
+    if index > 16 then return end
+    return mat[index], unpackmat4(mat, index + 1)
+end
 
 local defaultShader = kaun.newShader(shaders.defaultVert, shaders.defaultFrag)
 
@@ -55,11 +59,19 @@ local playerMesh = kaun.newSphereMesh(playerRadius, 32, 12)
 local playerTrafo = kaun.newTransform()
 playerTrafo:setPosition(0, terrain.getHeight(0, 0) + playerRadius, 0)
 
-local shadowMap = kaun.newRenderTexture("depth24", 2048, 2048)
+local shadowMapSize = 4096
+local shadowMap = kaun.newRenderTexture("depth24", shadowMapSize, shadowMapSize)
+shadowMap:setBorderColor(1, 1, 1, 1)
+shadowMap:setCompareFunc("less")
 local shadowCamera = kaun.newTransform()
 shadowCamera:setPosition((vec3(lightDir) * 40.0):unpack())
 shadowCamera:lookAt(0, 0, 0)
-local shadowProjection = {-28, 28, -10, 13, 0.0, 100.0}
+local shadowCamMat = mat4({shadowCamera:getMatrix()})
+local lightView = -shadowCamMat
+-- cpml has left, right, top, bottom (usually it's left, right, bottom, top)
+local shadowProjParams = {-28, 28, 13, -10, 10.0, 80.0}
+local shadowProjection = mat4.from_ortho(unpack(shadowProjParams))
+local shadowMatrix = lightView * shadowProjection
 
 local colorTarget, depthTarget, colorTargetMS, depthTargetMS
 
@@ -134,6 +146,7 @@ function renderScene()
         baseTexture = sandTexture,
         texScale = 4,
         shadowMap = shadowMap,
+        lightTransform = {unpackmat4(shadowMatrix)},
     })
 
     kaun.setModelTransform(groundTrafo)
@@ -144,6 +157,7 @@ function renderScene()
         baseTexture = sandTexture,
         texScale = terrainTexScale * waterSize / terrainSize,
         shadowMap = shadowMap,
+        lightTransform = {unpackmat4(shadowMatrix)},
     })
 
     kaun.setModelTransform(playerTrafo)
@@ -154,6 +168,7 @@ function renderScene()
         baseTexture = sandTexture,
         texScale = 5,
         shadowMap = shadowMap,
+        lightTransform = {unpackmat4(shadowMatrix)},
     })
 end
 
@@ -162,7 +177,7 @@ function love.draw()
     kaun.setRenderTarget({}, shadowMap)
     kaun.clearDepth()
 
-    kaun.setProjection(unpack(shadowProjection))
+    kaun.setProjection(unpackmat4(shadowProjection))
     kaun.setViewTransform(shadowCamera)
 
     renderScene()
@@ -181,7 +196,6 @@ function love.draw()
     kaun.draw(skyboxMesh, skyboxShader, {
         skyboxTexture = skyboxTexture,
     }, skyboxState)
-    --kaun.flush()
 
     renderScene()
 
@@ -198,6 +212,8 @@ function love.draw()
         depthTexture = depthTarget,
         noiseTexture = noiseTexture,
         time = love.timer.getTime() - startTime,
+        shadowMap = shadowMap,
+        lightTransform = {unpackmat4(shadowMatrix)},
     }, waterState)
 
     -- local w, h = love.graphics.getDimensions()

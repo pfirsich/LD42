@@ -1,6 +1,9 @@
 !.gitignore
 untracked
 
+# RenderDoc capture config
+rdoc.cap
+
 # love
 love.exe
 lovec.exe
