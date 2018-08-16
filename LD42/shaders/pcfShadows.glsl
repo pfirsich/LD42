@@ -83,7 +83,7 @@ float getShadowValue() {
     float bias = 0.001; // don't just use a constant bias
     coords.z -= bias;
     if(coords.z > 1.0) {
-        return 0.0;
+        return 1.0;
     } else {
         return poissonShadowValue(coords.xyz);
     }
