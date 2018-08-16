@@ -12,21 +12,24 @@ uniform vec4 color;
 uniform vec3 ambientColor;
 uniform vec3 lightDir; // normalized
 uniform float texScale = 1.0;
+uniform float detailTexScale;
+uniform vec2 detailMapDistance;
 
 #pragma include pcfShadows
 
 void main() {
     float NdotL = max(0.0, dot(vsOut.normal, lightDir));
+    vec2 tc = vsOut.texCoord;
+    tc.y = 1.0 - tc.y;
     vec4 tex = texture(baseTexture, vsOut.texCoord * texScale);
-    vec4 detail = texture(baseTexture, vsOut.texCoord * texScale * 5.0);
-    //fragColor = vec4(0.0, 0.0, 1.0, 1.0);
-    //fragColor = vec4(color.rgb * NdotL, color.a);
-    //fragColor = color * tex;
-    vec3 col = color.rgb * mix(detail.rgb, tex.rgb, smoothstep(1.0, 10.0, length(vsOut.eye)));
+    if(detailTexScale > 0.0) {
+        vec4 detail = texture(baseTexture, vsOut.texCoord * texScale * detailTexScale);
+        tex = mix(detail, tex,
+            smoothstep(detailMapDistance[0], detailMapDistance[1], length(vsOut.eye)));
+    }
+    vec3 col = color.rgb * tex.rgb;
 
     float shadow = getShadowValue();
 
-    //fragColor = vec4(vec3(shadow), 1.0);
-    //fragColor = vec4(coords.xy, 0.0, 1.0);
     fragColor = vec4(col * (vec3(1.0) * NdotL * shadow + ambientColor), color.a);
 }

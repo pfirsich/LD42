@@ -18,6 +18,15 @@ local function unpackmat4(mat, index)
     return mat[index], unpackmat4(mat, index + 1)
 end
 
+local function randf(min, max)
+    min = min or 1
+    if max == nil then
+        max = min
+        min = -min
+    end
+    return min + love.math.random() * (max - min)
+end
+
 local defaultShader = kaun.newShader(shaders.defaultVert, shaders.defaultFrag)
 
 local terrainSize = 60
@@ -59,9 +68,37 @@ local playerMesh = kaun.newSphereMesh(playerRadius, 32, 12)
 local playerTrafo = kaun.newTransform()
 playerTrafo:setPosition(0, terrain.getHeight(0, 0) + playerRadius, 0)
 
+local palmAssets = {}
+for i = 1, 4 do
+    palmAssets[i] = {
+        mesh = kaun.newObjMesh(("media/palm%d.obj"):format(i)),
+        texture = kaun.newTexture(("media/palm%d.jpg"):format(i)),
+    }
+end
+local palms = {}
+for i = 1, 20 do
+    local palm = kaun.newTransform()
+    local x = love.math.random() * terrainSize - terrainSize/2
+    local z = love.math.random() * terrainSize - terrainSize/2
+    palm:setPosition(x, terrain.getHeight(x, z), z)
+    local scale = 0.01 * (1.0 + randf(0.2)) -- palm 1
+    local scale = 1.0 * (1.0 + randf(0.2))
+    palm:setScale(scale, scale, scale)
+    local angle = 0.15 * randf() * math.pi
+    local dir = vec3(randf(-1, 1), randf(-1, 1), randf(-1, 1)):normalize()
+    palm:rotate(angle, dir:unpack())
+    local palmIndex = love.math.random(1, 4)
+    table.insert(palms, {
+        mesh = palmAssets[palmIndex].mesh,
+        texture = palmAssets[palmIndex].texture,
+        trafo = palm,
+    })
+end
+
 local shadowMapSize = 4096
 local shadowMap = kaun.newRenderTexture("depth24", shadowMapSize, shadowMapSize)
 shadowMap:setBorderColor(1, 1, 1, 1)
+shadowMap:setWrap("clamp_to_border", "clamp_to_border")
 shadowMap:setCompareFunc("less")
 local shadowCamera = kaun.newTransform()
 shadowCamera:setPosition((vec3(lightDir) * 40.0):unpack())
@@ -72,6 +109,7 @@ local lightView = -shadowCamMat
 local shadowProjParams = {-28, 28, 13, -10, 10.0, 80.0}
 local shadowProjection = mat4.from_ortho(unpack(shadowProjParams))
 local shadowMatrix = lightView * shadowProjection
+local shadowMapShader = kaun.newShader(shaders.shadowMap)
 
 local colorTarget, depthTarget, colorTargetMS, depthTargetMS
 
@@ -136,10 +174,10 @@ end
 
 local startTime = love.timer.getTime()
 
-function renderScene()
+function renderScene(shader)
     local terrainTexScale = 5
     kaun.setModelTransform(terrain.transform)
-    kaun.draw(terrain.mesh, defaultShader, {
+    kaun.draw(terrain.mesh, shader, {
         color = {1, 1, 1, 1},
         ambientColor = ambientColor,
         lightDir = lightDir,
@@ -147,10 +185,12 @@ function renderScene()
         texScale = 4,
         shadowMap = shadowMap,
         lightTransform = {unpackmat4(shadowMatrix)},
+        detailTexScale = 5.0,
+        detailMapDistance = {1.0, 10.0},
     })
 
     kaun.setModelTransform(groundTrafo)
-    kaun.draw(groundMesh, defaultShader, {
+    kaun.draw(groundMesh, shader, {
         color = {1, 1, 1, 1},
         ambientColor = ambientColor,
         lightDir = lightDir,
@@ -158,10 +198,12 @@ function renderScene()
         texScale = terrainTexScale * waterSize / terrainSize,
         shadowMap = shadowMap,
         lightTransform = {unpackmat4(shadowMatrix)},
+        detailTexScale = 5.0,
+        detailMapDistance = {1.0, 10.0},
     })
 
     kaun.setModelTransform(playerTrafo)
-    kaun.draw(playerMesh, defaultShader, {
+    kaun.draw(playerMesh, shader, {
         color = {1, 0, 0, 1},
         ambientColor = ambientColor,
         lightDir = lightDir,
@@ -169,7 +211,22 @@ function renderScene()
         texScale = 5,
         shadowMap = shadowMap,
         lightTransform = {unpackmat4(shadowMatrix)},
+        detailTexScale = 0.0,
     })
+
+    for i = 1, #palms do
+        kaun.setModelTransform(palms[i].trafo)
+        kaun.draw(palms[i].mesh, shader, {
+            color = {1, 1, 1, 1},
+            ambientColor = ambientColor,
+            lightDir = lightDir,
+            baseTexture = palms[i].texture,
+            texScale = 1,
+            shadowMap = shadowMap,
+            lightTransform = {unpackmat4(shadowMatrix)},
+            detailTexScale = 0.0,
+        })
+    end
 end
 
 function love.draw()
@@ -180,7 +237,7 @@ function love.draw()
     kaun.setProjection(unpackmat4(shadowProjection))
     kaun.setViewTransform(shadowCamera)
 
-    renderScene()
+    renderScene(shadowMapShader)
 
     -- render actual scene
     kaun.setRenderTarget(colorTargetMS, depthTargetMS)
@@ -197,7 +254,7 @@ function love.draw()
         skyboxTexture = skyboxTexture,
     }, skyboxState)
 
-    renderScene()
+    renderScene(defaultShader)
 
     -- resolve render targets
     kaun.setRenderTarget(colorTarget, depthTarget, true)

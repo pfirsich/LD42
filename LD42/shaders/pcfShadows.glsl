@@ -82,8 +82,9 @@ float getShadowValue() {
     coords.xyz = coords.xyz * 0.5 + 0.5; // [-1, 1] to [0, 1]
     float bias = 0.001; // don't just use a constant bias
     coords.z -= bias;
-    //float shadow = texture(shadowMap, coords.xyz);
-    float shadow = poissonShadowValue(coords.xyz);
-    if(coords.z > 1.0) shadow = 0.0;
-    return shadow;
+    if(coords.z > 1.0) {
+        return 0.0;
+    } else {
+        return poissonShadowValue(coords.xyz);
+    }
 }
