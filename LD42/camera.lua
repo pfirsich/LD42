@@ -38,17 +38,6 @@ function camera.update(dt)
     camera.uncollide()
 end
 
-function camera.updatePlayer(playerPos)
-    local rel = playerPos - camera.position
-    rel.y = 0
-    local maxDist = 3.0
-    if rel:len() > maxDist then
-        camera.position = camera.position + rel:normalize() * (rel:len() - maxDist)
-    end
-    camera.lookAt(playerPos:unpack())
-    camera.uncollide()
-end
-
 function camera.mouseLook(dx, dy, sensitity)
     camera.rotateWorld(sensitity * dx, 0, 1, 0)
     camera.rotate(sensitity * dy, 1, 0, 0)

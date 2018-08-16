@@ -63,11 +63,6 @@ camera.lookAtPos(0, 4, terrainSize/2,  0, terrainHeight, -terrainSize/2)
 local sandTexture = kaun.newTexture("media/sand.png")
 sandTexture:setWrap("repeat", "repeat")
 
-local playerRadius = 0.2
-local playerMesh = kaun.newSphereMesh(playerRadius, 32, 12)
-local playerTrafo = kaun.newTransform()
-playerTrafo:setPosition(0, terrain.getHeight(0, 0) + playerRadius, 0)
-
 local palmAssets = {}
 for i = 1, 4 do
     palmAssets[i] = {
@@ -145,21 +140,6 @@ function love.update(dt)
 
     camera.update(dt)
 
-    local playerSpeed = 2.0
-    local pMove = vec3(0, 0, 0)
-    pMove.x = bool2Int(lk.isDown("right")) - bool2Int(lk.isDown("left"))
-    pMove.z = bool2Int(lk.isDown("up")) - bool2Int(lk.isDown("down"))
-    pMove = pMove:normalize()
-
-    if pMove:len() > 0.5 then
-        local playerPos = vec3(playerTrafo:getPosition())
-        playerPos = playerPos + vec3(camera.getRight()) * pMove.x * playerSpeed * dt
-        playerPos = playerPos + vec3(camera.getForward()) * pMove.z * playerSpeed * dt
-        playerPos.y = terrain.getHeight(playerPos.x, playerPos.z) + playerRadius
-        playerTrafo:setPosition(playerPos:unpack())
-        camera.updatePlayer(playerPos)
-    end
-
     local waterPos = vec3(waterTrafo:getPosition())
     waterPos.y = waterPos.y + (bool2Int(lk.isDown("j")) - bool2Int(lk.isDown("k"))) * 0.2 * dt
     waterTrafo:setPosition(waterPos:unpack())
@@ -200,18 +180,6 @@ function renderScene(shader)
         lightTransform = {unpackmat4(shadowMatrix)},
         detailTexScale = 5.0,
         detailMapDistance = {1.0, 10.0},
-    })
-
-    kaun.setModelTransform(playerTrafo)
-    kaun.draw(playerMesh, shader, {
-        color = {1, 0, 0, 1},
-        ambientColor = ambientColor,
-        lightDir = lightDir,
-        baseTexture = sandTexture,
-        texScale = 5,
-        shadowMap = shadowMap,
-        lightTransform = {unpackmat4(shadowMatrix)},
-        detailTexScale = 0.0,
     })
 
     for i = 1, #palms do
