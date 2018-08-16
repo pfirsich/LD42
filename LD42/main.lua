@@ -8,8 +8,8 @@ local terrain = require("terrain")
 local camera = require("camera")
 local shaders = require("shaders")
 
---local lightDir = {vec3(-0.8252, 0.3637, 0.4320):normalize():unpack()} -- correct!
-local lightDir = {vec3(-0.8252, 0.3237, 0.4320):normalize():unpack()} -- longer shadows!
+local lightDir = {vec3(-0.8252, 0.3637, 0.4320):normalize():unpack()} -- correct!
+--local lightDir = {vec3(-0.8252, 0.3237, 0.4320):normalize():unpack()} -- longer shadows!
 local ambientColor = {0.15, 0.16, 0.15}
 
 local function unpackmat4(mat, index)
@@ -71,10 +71,13 @@ for i = 1, 4 do
     }
 end
 local palms = {}
-for i = 1, 20 do
+for i = 1, 15 do
     local palm = kaun.newTransform()
-    local x = love.math.random() * terrainSize - terrainSize/2
-    local z = love.math.random() * terrainSize - terrainSize/2
+    local x, z = terrainSize, terrainSize
+    while math.sqrt(x*x + z*z) > terrainSize * 0.4 do
+        x = love.math.random() * terrainSize - terrainSize/2
+        z = love.math.random() * terrainSize - terrainSize/2
+    end
     palm:setPosition(x, terrain.getHeight(x, z), z)
     local scale = 0.01 * (1.0 + randf(0.2)) -- palm 1
     local scale = 1.0 * (1.0 + randf(0.2))
