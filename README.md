@@ -1,0 +1,1 @@
+This was the first project I attempted with [kaun](https://github.com/pfirsich/kaun) and I ended up working a lot more on kaun itself than the game during the jam, so I turned it into a tech demo (see commit history). It has now moved to the example folder of the kaun repository.
