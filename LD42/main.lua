@@ -58,7 +58,8 @@ local skyboxState = kaun.newRenderState()
 skyboxState:setDepthWrite(false)
 skyboxState:setFrontFace("cw")
 
-camera.lookAtPos(0, 4, terrainSize/2,  0, terrainHeight, -terrainSize/2)
+camera.position = vec3(0, 4, terrainSize/2)
+camera.lookAt(0, 0, -terrainSize/2)
 
 local sandTexture = kaun.newTexture("media/sand.png")
 sandTexture:setWrap("repeat", "repeat")
@@ -126,11 +127,11 @@ local projection = {}
 
 function love.resize(w, h)
     projection = {45, w/h, 0.1, 100.0}
-    kaun.setViewport(0, 0, w, h)
-    colorTarget = kaun.newRenderTexture("rgba", w, h)
+    kaun.setWindowDimensions(w, h)
+    colorTarget = kaun.newRenderTexture("srgb8a8", w, h)
     depthTarget = kaun.newRenderTexture("depth24", w, h)
     local msaa = 8
-    colorTargetMS = kaun.newRenderTexture("rgba", w, h, msaa)
+    colorTargetMS = kaun.newRenderTexture("srgb8a8", w, h, msaa)
     depthTargetMS = kaun.newRenderTexture("depth24", w, h, msaa)
 end
 
@@ -211,6 +212,7 @@ function love.draw()
     renderScene(shadowMapShader)
 
     -- render actual scene
+    --kaun.setRenderTarget(colorTarget, depthTarget)
     kaun.setRenderTarget(colorTargetMS, depthTargetMS)
     kaun.clear(0.9, 1, 1, 1)
     kaun.clearDepth()
