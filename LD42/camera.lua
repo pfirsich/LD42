@@ -1,4 +1,7 @@
 local terrain = require("terrain")
+local util = require("util")
+
+local bool2int = util.bool2int
 
 local camera = {}
 
@@ -24,9 +27,9 @@ function camera.update(dt)
     speed = speed * dt
 
     local move = vec3(0, 0, 0)
-    move.x = bool2Int(lk.isDown("d")) - bool2Int(lk.isDown("a"))
-    move.y = bool2Int(lk.isDown("r")) - bool2Int(lk.isDown("f"))
-    move.z = bool2Int(lk.isDown("s")) - bool2Int(lk.isDown("w"))
+    move.x = bool2int(lk.isDown("d")) - bool2int(lk.isDown("a"))
+    move.y = bool2int(lk.isDown("r")) - bool2int(lk.isDown("f"))
+    move.z = bool2int(lk.isDown("s")) - bool2int(lk.isDown("w"))
 
     if move:len() > 0.5 then
         local moveY = move.y
